@@ -1,6 +1,6 @@
 import { useSignUp } from "@clerk/expo";
 import clsx from "clsx";
-import { Link, useRouter } from "expo-router";
+import { Href, Link, useRouter } from "expo-router";
 import { styled } from "nativewind";
 import React, { useRef, useState } from "react";
 import {
@@ -49,9 +49,16 @@ export default function SignUp() {
 
   const finalize = async () => {
     await signUp.finalize({
-      navigate: ({ decorateUrl }) => {
+      navigate: ({ session, decorateUrl }) => {
+        if (session.currentTask) {
+          return;
+        }
         const url = decorateUrl("/(tabs)");
-        router.replace(url as any);
+        if (url.startsWith("http")) {
+          window.location.href = url;
+        } else {
+          router.replace(url as Href);
+        }
       },
     });
   };
