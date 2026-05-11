@@ -46,7 +46,11 @@ export default function SignIn() {
 
   const finalize = async () => {
     await signIn.finalize({
-      navigate: ({ decorateUrl }) => {
+      navigate: ({ session, decorateUrl }) => {
+        if (session?.currentTask) {
+          return;
+        }
+
         const url = decorateUrl("/(tabs)");
         router.replace(url as any);
       },
