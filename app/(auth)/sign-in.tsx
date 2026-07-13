@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView as RNSafeAreaView } from "react-native-safe-area-context";
+import { usePostHog } from "posthog-react-native";
 
 const SafeAreaView = styled(RNSafeAreaView);
 
@@ -24,6 +25,7 @@ type Step = "credentials" | "verify";
 export default function SignIn() {
   const { signIn, errors, fetchStatus } = useSignIn();
   const router = useRouter();
+  const posthog = usePostHog();
 
   const passwordRef = useRef<TextInput>(null);
 
@@ -62,12 +64,17 @@ export default function SignIn() {
     if (!emailValid || !passwordValid) return;
 
     const { error } = await signIn.password({ emailAddress: email, password });
-    if (error) return;
+    if (error) {
+      posthog.capture("user_sign_in_failed", { error_code: error.code });
+      return;
+    }
 
     if (signIn.status === "complete") {
+      posthog.capture("user_signed_in", { method: "password" });
       await finalize();
     } else if (signIn.status === "needs_client_trust") {
       await signIn.mfa.sendEmailCode();
+      posthog.capture("mfa_code_sent");
       setStep("verify");
     }
   };
@@ -76,6 +83,8 @@ export default function SignIn() {
     if (!code) return;
     await signIn.mfa.verifyEmailCode({ code });
     if (signIn.status === "complete") {
+      posthog.capture("mfa_verified");
+      posthog.capture("user_signed_in", { method: "mfa" });
       await finalize();
     }
   };
