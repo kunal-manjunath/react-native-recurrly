@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView as RNSafeAreaView } from "react-native-safe-area-context";
+import { usePostHog } from "posthog-react-native";
 
 const SafeAreaView = styled(RNSafeAreaView);
 
@@ -22,6 +23,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export default function SignUp() {
   const { signUp, errors, fetchStatus } = useSignUp();
   const router = useRouter();
+  const posthog = usePostHog();
 
   const passwordRef = useRef<TextInput>(null);
 
@@ -68,9 +70,13 @@ export default function SignUp() {
     if (!emailValid || !passwordValid) return;
 
     const { error } = await signUp.password({ emailAddress: email, password });
-    if (error) return;
+    if (error) {
+      posthog.capture("user_sign_up_failed", { error_code: error.code });
+      return;
+    }
 
     await signUp.verifications.sendEmailCode();
+    posthog.capture("user_signed_up");
   };
 
   const handleVerify = async () => {
@@ -79,6 +85,7 @@ export default function SignUp() {
     await signUp.verifications.verifyEmailCode({ code });
 
     if (signUp.status === "complete") {
+      posthog.capture("email_verified");
       await finalize();
     }
   };
